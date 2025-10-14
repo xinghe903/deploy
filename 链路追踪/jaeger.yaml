@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaegertracing
+  namespace: toolkit
+  labels:
+    app.kubernetes.io/name: jaegertracing
+    app.kubernetes.io/version: 1.0.1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: jaegertracing
+      app.kubernetes.io/version: 1.0.1
+  template:
+    metadata:
+      name: jaegertracing
+      labels:
+        app.kubernetes.io/name: jaegertracing
+        app.kubernetes.io/version: 1.0.1
+    spec:
+      containers:
+        - name: jaegertracing-containers
+          image: 私有仓库地址/jaeger:2.6.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 16686
+            - containerPort: 4317
+            - containerPort: 4318
+          env:
+            - name: ES_SERVER_URLS
+              value: "http://nodeip002:9223"
+            - name: ES_USERNAME
+              value: "username"
+            - name: ES_PASSWORD
+              value: "password"
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+            - name: SPAN_STORAGE_TYPE
+              value: "elasticsearch"
+          volumeMounts:
+            - name: timezone
+              mountPath: /etc/localtime
+      restartPolicy: Always
+      volumes:
+        - name: timezone
+          hostPath:
+            path: /etc/localtime
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaegertracing
+  namespace: toolkit
+spec:
+  selector:
+    app.kubernetes.io/name: jaegertracing
+    app.kubernetes.io/version: 1.0.1
+  ports:
+    - name: web
+      protocol: TCP
+      port: 16686
+      targetPort: 16686
+      nodePort: 32636
+    - name: grpc
+      protocol: TCP
+      port: 4317
+      targetPort: 4317
+      nodePort: 32195
+    - name: http
+      protocol: TCP
+      port: 4318
+      targetPort: 4318
+      nodePort: 32750
+  type: NodePort
+

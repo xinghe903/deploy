@@ -1,0 +1,50 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch-exporter
+  namespace: prometheus
+  labels:
+    app: elasticsearch-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch-exporter
+  template:
+    metadata:
+      labels:
+        app: elasticsearch-exporter
+    spec:
+      containers:
+        - name: elasticsearch-exporter
+          image: 私有仓库地址/elasticsearch-exporter:latest
+          args:
+            - '--es.uri=http://elastic:password@nodeip003:9020'
+            - '--web.listen-address=:9108'
+            - '--es.all'
+          ports:
+            - containerPort: 9108
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-exporter
+  namespace: prometheus
+  labels:
+    app: elasticsearch-exporter
+spec:
+  selector:
+    app: elasticsearch-exporter
+  ports:
+    - protocol: TCP
+      port: 9108
+      targetPort: 9108
+  type: ClusterIP
