@@ -14,8 +14,19 @@
 
 ### 展示功能
 - 日志展示：通过Kibana展示日志
+![alt text](pics/70d751a7c8d4c9b42d381605c337d5ba.png)
+
 - 追踪展示：通过Jaeger展示链路追踪
+![alt text](pics/718e2e8848dd87c4b3d1fef26253cb52.png)
+
+![alt text](pics/9d33ee0d0ca18d9dc16828019a28b24d.png)
+
+
 - 指标展示：通过Grafana展示各类监控指标
+
+![alt text](pics/370997f55cce8d5dfe5a4ccf9597fce6.png)
+
+
 
 ## 项目结构
 

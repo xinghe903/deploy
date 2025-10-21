@@ -8,7 +8,7 @@
 
 集群由`API Server`、`etcd`、`Controller Manager`、`Scheduler`、`kubelet`、`kube-proxy`、`container runtime`等组件组成.
 
-![alt text](pic/image-2.png)
+![alt text](pics/image-2.png)
 
 API Server: 提供资源对象的唯一操作入口，其他所有组件都必须通过它提供的API来操作资源数据，只有`API Server`与存储通信，其他模块通过API Server访问集群状态.
 
