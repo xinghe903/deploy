@@ -49,8 +49,7 @@
 │   ├── grafana.yaml          # Grafana配置文件
 │   └── prometheus.yaml       # Prometheus配置文件
 ├── kubeadm软件包/             # Kubernetes相关软件包
-├── pic/                      # 文档中使用的图片
-└── 证书/                      # 证书文件
+├── pics/                      # 文档中使用的图片
 ```
 
 ## 部署指南
