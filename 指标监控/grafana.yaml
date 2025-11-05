@@ -1,0 +1,100 @@
+# 配置`service`
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    kubernetes.io/cluster-service: 'true'
+    kubernetes.io/name: grafana
+  name: grafana
+  namespace: toolkit
+spec:
+  ports:
+  - port: 80
+    targetPort: 3000
+  selector:
+    app: grafana
+  type: NodePort
+
+---
+# 部署`grafana`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+  namespace: toolkit  # 可根据实际情况修改命名空间
+data:
+  grafana.ini: |
+    # 服务器配置
+    [server]
+    # 监听的 HTTP 端口
+    http_port = 3000
+    # 服务器根 URL，用于生成链接等
+    root_url = %(protocol)s://%(domain)s:%(http_port)s/
+
+    # 数据库配置
+    [database]
+    # 数据库类型，这里使用 SQLite3
+    type = sqlite3
+    # 数据库文件路径
+    path = data/grafana.db
+
+    # 日志配置
+    [log]
+    # 日志级别，可选值：debug, info, warn, error, critical
+    level = info
+    # 日志模式，这里使用 console 模式，将日志输出到控制台
+    mode = console
+
+    # 认证相关配置
+    [auth]
+    # 禁用登录表单
+    disable_login_form = false
+    # 禁用 Grafana.com 认证
+    disable_gravatar = false
+
+    # 匿名访问配置
+    [auth.anonymous]
+    # 启用匿名访问
+    enabled = true
+    # 匿名用户所属的组织名称
+    org_name = Main Org.
+    # 匿名用户的角色，可选值：Viewer, Editor, Admin
+    org_role = Viewer
+
+    # 安全配置
+    [security]
+    # 管理员用户名
+    admin_user = admin
+    # 管理员初始密码，建议部署后修改
+    admin_password = admin
+    # 用于生成安全令牌等的秘钥
+    secret_key = SW2Ycw2345pOOhoPsMm
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: toolkit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: 私有仓库地址/grafana:11.5.2
+        ports:
+        - containerPort: 3000
+        volumeMounts:
+        - name: grafana-config-volume
+          mountPath: /etc/grafana/grafana.ini
+          subPath: grafana.ini
+      volumes:
+      - name: grafana-config-volume
+        configMap:
+          name: grafana-config

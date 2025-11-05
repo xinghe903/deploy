@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana-ui
+  labels:
+    app.kubernetes.io/name: kibana-ui
+    app.kubernetes.io/version: 1.0.1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kibana-ui
+      app.kubernetes.io/version: 1.0.1
+  template:
+    metadata:
+      name: kibana-ui
+      labels:
+        app.kubernetes.io/name: kibana-ui
+        app.kubernetes.io/version: 1.0.1
+    spec:
+      containers:
+        - name: kibana-ui-containers
+          image: 私有仓库地址/gene/kibana:7.17.21
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5601
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://nodeip001:9020"
+            - name: ELASTICSEARCH_USERNAME
+              value: "username"
+            - name: ELASTICSEARCH_PASSWORD
+              value: "password"
+          volumeMounts:
+            - name: timezone
+              mountPath: /etc/localtime
+      restartPolicy: Always
+      volumes:
+        - name: timezone
+          hostPath:
+            path: /etc/localtime
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana-ui
+spec:
+  selector:
+    app.kubernetes.io/name: kibana-ui
+    app.kubernetes.io/version: 1.0.1
+  ports:
+    - name: http
+      protocol: TCP
+      port: 5601
+      targetPort: 5601
+  type: NodePort

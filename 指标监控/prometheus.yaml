@@ -1,0 +1,193 @@
+# 配置`configmap`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: toolkit
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    rule_files:
+    - /etc/prometheus/rules/*.rules
+    scrape_configs:
+    - job_name: 'prometheus'
+      static_configs:
+      - targets: ['localhost:9090']
+
+    - job_name: 'node-exporter'
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: node-exporter;metrics
+      - source_labels: [__address__]
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}:9100'
+        target_label: __address__
+---
+# 配置告警规则`rule`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: toolkit
+data:
+  general.rules: |
+    groups:
+    - name: general.rules
+      rules:
+      - alert: InstanceDown
+        expr: |
+          up{job=~"k8s-nodes|prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} 停止工作"
+          description: "{{ $labels.instance }} 主机名：{{ $labels.hostname }} 已经停止1分钟以上."
+  node.rules: |
+    groups:
+    - name: node.rules
+      rules:
+      - alert: NodeFilesystemUsage
+        expr: |
+          100 - (node_filesystem_avail_bytes / node_filesystem_size_bytes) * 100 > 85
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Instance {{ $labels.instance }} : {{ $labels.mountpoint }} 分区使用率过高"
+          description: "{{ $labels.instance }} 主机名：{{ $labels.hostname }} : {{ $labels.mountpoint }} 分区使用大于85% (当前值: {{ $value }})"
+
+---
+# 配置`service`
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: toolkit
+  labels:
+    k8s-app: prometheus
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 9090
+    targetPort: 9090
+  selector:
+    k8s-app: prometheus
+
+---
+# 配置`pvc`
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data-pvc
+  namespace: toolkit
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: "nfs"
+  resources:
+    requests:
+      storage: 10Gi
+---
+# 部署`prometheus`
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: toolkit
+  labels:
+    k8s-app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: prometheus
+  template:
+    metadata:
+      labels:
+        k8s-app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      # nodeName: node247
+      containers:
+      - name: prometheus
+        image: 私有仓库地址/prometheus:v3.2.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 9090
+        securityContext:
+          runAsUser: 0
+        command:
+        - "/bin/prometheus"
+        args:
+        - "--config.file=/etc/prometheus/prometheus.yml"
+        - "--web.enable-lifecycle"
+        - "--storage.tsdb.path=/prometheus"
+        - "--storage.tsdb.retention.time=10d"
+        - "--web.console.libraries=/etc/prometheus/console_libraries"
+        - "--web.console.templates=/etc/prometheus/consoles"
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 2048Mi
+          requests:
+            cpu: 1000m
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9090
+          initialDelaySeconds: 5
+          timeoutSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9090
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+        volumeMounts:
+        - name: data
+          mountPath: /prometheus
+          subPath: prometheus
+        - name: config
+          mountPath: /etc/prometheus
+        - name: prometheus-rules
+          mountPath: /etc/prometheus/rules
+      - name: configmap-reload
+        image: 私有仓库地址/configmap-reload:v0.9.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--volume-dir=/etc/config"
+        - "--webhook-url=http://localhost:9090/-/reload"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: prometheus-data-pvc
+      - name: prometheus-rules
+        configMap:
+          name: prometheus-rules
+      - name: config
+        configMap:
+          name: prometheus-config

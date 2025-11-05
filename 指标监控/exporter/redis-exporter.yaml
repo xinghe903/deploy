@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-exporter
+  namespace: toolkit  # 可按需修改命名空间
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-exporter
+  template:
+    metadata:
+      labels:
+        app: redis-exporter
+    spec:
+      containers:
+      - name: redis-exporter
+        image: 私有仓库地址/redis_exporter:v1.44.0  # 可按需选择合适版本
+        args:
+        - --redis.addr=redis://nodeip004:6390
+        - --redis.password=password
+        ports:
+        - containerPort: 9121
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-exporter
+  namespace: toolkit  # 可按需修改命名空间
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9121
+    targetPort: 9121
+    protocol: TCP
+  selector:
+    app: redis-exporter
